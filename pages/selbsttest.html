@@ -634,7 +634,7 @@
                        class="code-input" 
                        placeholder="CODE-XXXX" 
                        maxlength="10">
-                <button id="startTestBtn" class="start-button" onclick="startTest()">
+                <button id="startTestBtn" class="start-button">
                     Test starten
                 </button>
             </div>
@@ -1891,8 +1891,11 @@ window.calculateResults = function() {
             document.getElementById('accessCode').value = '';
         }
 
-        // Enable Enter key for code input
+        // Enable button click and Enter key for code input
         document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('startTestBtn').addEventListener('click', function() {
+                startTest();
+            });
             document.getElementById('accessCode').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     startTest();
