@@ -710,9 +710,9 @@
         // Firebase imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, query, where, getDocs, addDoc, setDoc, doc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase initialisieren
+        // Firebase initialisieren und global verfügbar machen
         let db = null;
         let firebaseReady = false;
 
@@ -727,6 +727,12 @@
         } catch (e) {
             console.warn("Firebase nicht verfügbar, nutze lokalen Speicher:", e);
         }
+
+        // Firebase-Objekte global verfügbar machen für saveDraft/loadDraft
+        window.__fb = {
+            db, firebaseReady,
+            collection, query, where, getDocs, addDoc, setDoc, doc, deleteDoc, serverTimestamp
+        };
 
         // Complete Test Questions Database with ALL competencies
         const sections = [
@@ -816,7 +822,7 @@
                         text: "Wie routiniert nutzen Sie Cloud-Dienste (z.B. OneDrive) für die Erstellung und Verwaltung von Unterrichtsressourcen?",
                         info: {
                             examples: "OneDrive-Ordnerstruktur, SharePoint-Bibliotheken, Teams-Dateien, Versionsverwaltung, Freigabeeinstellungen",
-                            tools: "Microsoft OneDrive, SharePoint, Teams Files, Google Drive",
+                            tools: "Microsoft OneDrive, SharePoint, Teams Files",
                             tips: "Strukturieren Sie Ordner nach Klassen/Fächern. Nutzen Sie die Suchfunktion. Aktivieren Sie automatische Synchronisation.",
                             ikt: "KN 🌐 - Vernetzung",
                             paed: "PDM 🛠️ - Digitale Organisation"
@@ -833,9 +839,9 @@
                         subcategory: "1.3 Cloud und digitale Ressourcen",
                         text: "Wie gut kennen Sie das Lizenzangebot Ihrer Schule und können deren Kernfunktionen anwenden?",
                         info: {
-                            examples: "KI-Assistenten von Fobizz-Tools, Unterrichtsmaterial mit to-teach.ai erstellen, Videos mit Clipchamp, Fotos mit Photoshop bearbeiten",
-                            tools: "Fobizz, to-teach.ai, Canva Education, Clipchamp von Microsoft, Quizlet, nanoo.tv",
-                            tips: "PIKT-Help-Seite konsultieren, Info im PIKT/TIKT-MS Team verfolgen. Verschaffen Sie sich einen Überblick über alle Lizenzen. Priorisieren Sie 2-3 Tools zum Start. Besuchen Sie Schulungen.",
+                            examples: "KI-Assistenten von Fobizz-Tools, Unterrichtsmaterial mit to-teach.ai erstellen, Videos mit Clipchamp, Fotos mit Adobe Creative Cloud bearbeiten, Copilot von Microsoft nutzen",
+                            tools: "Fobizz, to-teach.ai, Adobe Creative Cloud, Copilot von Microsoft, Canva Education, Clipchamp von Microsoft, Quizlet, nanoo.tv",
+                            tips: "PIKT-Help-Seite konsultieren, Info im PIKT/TIKT-MS Team verfolgen. Verschaffen Sie sich einen Überblick über alle Lizenzen. Priorisieren Sie 2-3 Tools zum Start. Besuchen Sie Schulungen. Adobe Creative Cloud und Copilot von Microsoft stehen allen LP zur Verfügung.",
                             ikt: "MV 🔄 - Medienvielfalt",
                             paed: "PDM 🛠️ - Werkzeugkompetenz"
                         },
@@ -859,9 +865,9 @@
                         subcategory: "2.1 Unterrichtsvorbereitung",
                         text: "Wie häufig setzen Sie digitale Werkzeuge und KI-Tools für die Erstellung von Lernmaterialien ein?",
                         info: {
-                            examples: "to-teach.ai für Aufgabenerstellung, Fobizz KI-Assistenten, to-teach.ai/adobe creativ cloud für Infografiken, to-teach.ai für Übungen, Copilot von Microsoft als KI-Bildgenerator",
-                            tools: "ChatGPT, Claude, Fobizz, to-teach.ai, Quizlet, Actionbound, Adobe Creative Cloud",
-                            tips: "Starten Sie mit einem Tool. Prüfen Sie KI-Inhalte immer. Sammeln Sie erfolgreiche Prompts.",
+                            examples: "KI-Textgeneratoren für Aufgabenerstellung, KI-Bildgeneratoren für Infografiken und Illustrationen, KI-Videogeneratoren für Lernvideos, to-teach.ai für Übungen und Arbeitsblätter",
+                            tools: "KI-Textgeneratoren (ChatGPT, Claude, Copilot, Fobizz), KI-Bildgeneratoren, KI-Videogeneratoren, to-teach.ai, Adobe Creative Cloud, Quizlet, Actionbound",
+                            tips: "Starten Sie mit einem Tool. Prüfen Sie KI-Inhalte immer. Sammeln Sie erfolgreiche Prompts. Nutzen Sie KI-Generatoren gezielt: Text für Aufgaben, Bilder für Visualisierungen, Video für Erklärungen.",
                             ikt: "RE 💚 - Effizienz",
                             paed: "PDM 🛠️ - Innovative Methoden"
                         },
@@ -997,7 +1003,7 @@ info: {
                         text: "Wie gut können Sie mit Lernenden digitale Hilfsmittel und KI für die Quellensuche anwenden?",
                         info: {
                             examples: "KI-gestützte Recherche, Suchstrategien, wissenschaftliche Datenbanken, Zitiertools, Plagiatsprüfung",
-                            tools: "Medienarchive wie Statista, E-Thek oder swissdox, KI-Suchmaschinen in Fobizz, Google, Lumo oder Opera",
+                            tools: "Medienarchive wie Statista, E-Thek oder swissdox, KI-Suchmaschinen in Fobizz, Lumo oder Opera, NotebookLM für Inhaltsaufbereitung",
                             tips: "Lehren Sie kritische Bewertung. Zeigen Sie verschiedene Suchstrategien. Üben Sie Quellenangaben.",
                             ikt: "HE 💡 - Vielfalt",
                             paed: "PU 📚 - Recherchekompetenz"
@@ -1311,28 +1317,111 @@ info: {
         let answers = {};
         let testCode = "";
         let testStartTime = null;
+        let draftDocId = null; // Firestore doc ID for draft auto-save
+
+        // Auto-save draft answers to Firestore
+        async function saveDraft() {
+            const fb = window.__fb;
+            if (!fb || !fb.firebaseReady || !fb.db || !testCode) return;
+            try {
+                const draftData = {
+                    code: testCode,
+                    answers: answers,
+                    currentSectionIndex: currentSectionIndex,
+                    lastUpdated: fb.serverTimestamp(),
+                    type: "draft"
+                };
+                const draftRef = fb.doc(fb.db, 'drafts', testCode);
+                await fb.setDoc(draftRef, draftData);
+                console.log("Draft gespeichert (" + Object.keys(answers).length + " Antworten)");
+            } catch (e) {
+                console.warn("Draft-Speicherung fehlgeschlagen:", e);
+            }
+        }
+
+        // Load saved draft from Firestore
+        async function loadDraft(code) {
+            const fb = window.__fb;
+            if (!fb || !fb.firebaseReady || !fb.db) return null;
+            try {
+                const { getDoc: getDocFn } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                const draftRef = fb.doc(fb.db, 'drafts', code);
+                const draftSnap = await getDocFn(draftRef);
+                if (draftSnap.exists()) {
+                    const data = draftSnap.data();
+                    console.log("Draft geladen:", Object.keys(data.answers || {}).length, "Antworten");
+                    return data;
+                }
+            } catch (e) {
+                console.warn("Draft laden fehlgeschlagen:", e);
+            }
+            return null;
+        }
+
+        // Count previous completed attempts for this code
+        async function countAttempts(code) {
+            const fb = window.__fb;
+            if (!fb || !fb.firebaseReady || !fb.db) return 0;
+            try {
+                const resultsRef = fb.collection(fb.db, 'results');
+                const q = fb.query(resultsRef, fb.where("testCode", "==", code));
+                const snap = await fb.getDocs(q);
+                return snap.size;
+            } catch (e) {
+                return 0;
+            }
+        }
+
+        // Delete draft after successful submit
+        async function deleteDraft(code) {
+            const fb = window.__fb;
+            if (!fb || !fb.firebaseReady || !fb.db) return;
+            try {
+                const draftRef = fb.doc(fb.db, 'drafts', code);
+                await fb.deleteDoc(draftRef);
+                console.log("Draft gelöscht");
+            } catch (e) {
+                console.warn("Draft löschen fehlgeschlagen:", e);
+            }
+        }
 
         // Start Test Function
-        window.startTest = function() {
+        window.startTest = async function() {
             const codeInput = document.getElementById('accessCode');
             const code = codeInput.value.trim().toUpperCase();
-            
+
             console.log('Eingegebener Code:', code);
-            
+
             if (code.length < 4) {
                 alert('Bitte geben Sie einen gültigen Code ein.');
                 return;
             }
-            
+
             testCode = code;
             testStartTime = new Date();
-            
+
+            // Try to load saved draft
+            const draft = await loadDraft(code);
+            if (draft && draft.answers && Object.keys(draft.answers).length > 0) {
+                answers = draft.answers;
+                currentSectionIndex = draft.currentSectionIndex || 0;
+                const numAnswered = Object.keys(answers).length;
+                const totalQuestions = sections.reduce((sum, s) => sum + s.questions.length, 0);
+                alert(`Willkommen zurück! ${numAnswered} von ${totalQuestions} Antworten wurden geladen. Sie können dort weitermachen, wo Sie aufgehört haben.`);
+            }
+
+            // Check previous attempts
+            const prevAttempts = await countAttempts(code);
+            if (prevAttempts > 0) {
+                console.log(`${prevAttempts} frühere Durchführung(en) für diesen Code.`);
+            }
+
             // Hide code entry, show test
             document.getElementById('codeEntry').style.display = 'none';
             document.getElementById('testSection').classList.add('active');
-            
-            // Initialize first section
-            showSection(0);
+
+            // Initialize section (resume from saved position)
+            showSection(currentSectionIndex);
         }
 
         // Show Section Function
@@ -1442,11 +1531,11 @@ info: {
         // Select Answer Function
         window.selectAnswer = function(questionId, value, element) {
             answers[questionId] = value;
-            
+
             // Update UI
             const questionCard = document.getElementById(`question-${questionId}`);
             questionCard.classList.add('answered');
-            
+
             // Update selected state for this question's options
             const options = questionCard.querySelectorAll('.answer-option');
             options.forEach(option => {
@@ -1454,7 +1543,7 @@ info: {
             });
             element.classList.add('selected');
             element.querySelector('input').checked = true;
-            
+
             // Update section progress display without reloading
             const section = sections[currentSectionIndex];
             const answeredInSection = section.questions.filter(q => answers[q.id] !== undefined).length;
@@ -1463,6 +1552,9 @@ info: {
             if (progressElement) {
                 progressElement.textContent = `${answeredInSection} von ${totalInSection} Fragen beantwortet`;
             }
+
+            // Auto-save draft after each answer
+            saveDraft();
         }
 
         // Check if all questions in current section are answered
@@ -1491,28 +1583,37 @@ info: {
                 alert(`Bitte beantworten Sie alle ${unanswered} verbleibenden Fragen in diesem Bereich.`);
                 return;
             }
-            
+
             if (currentSectionIndex < sections.length - 1) {
                 currentSectionIndex++;
                 showSection(currentSectionIndex);
+                // Save progress including current section
+                saveDraft();
             }
         }
 
         // Submit Test Function
-        window.submitTest = function() {
+        window.submitTest = async function() {
             if (!checkSectionComplete()) {
                 const currentSection = sections[currentSectionIndex];
                 const unanswered = currentSection.questions.filter(q => !answers[q.id]).length;
                 alert(`Bitte beantworten Sie alle ${unanswered} verbleibenden Fragen in diesem Bereich.`);
                 return;
             }
-            
+
             // Calculate results
             const results = calculateResults();
-            
+
+            // Add attempt number
+            const prevAttempts = await countAttempts(testCode);
+            results.attemptNumber = prevAttempts + 1;
+
             // Save to Firebase and localStorage
-            saveResults(results);
-            
+            await saveResults(results);
+
+            // Delete draft after successful submit
+            await deleteDraft(testCode);
+
             // Show results
             showResults(results);
         }
@@ -1739,21 +1840,22 @@ window.calculateResults = function() {
             let allResults = JSON.parse(localStorage.getItem('bbw_test_results') || '[]');
             allResults.push(results);
             localStorage.setItem('bbw_test_results', JSON.stringify(allResults));
-            
+
             // Firebase Speicherung
-            if (firebaseReady && db) {
+            const fb = window.__fb;
+            if (fb && fb.firebaseReady && fb.db) {
                 try {
                     // Prüfe ob Code existiert
-                    const codesRef = collection(db, 'codes');
-                    const q = query(codesRef, where("code", "==", results.testCode));
-                    const querySnapshot = await getDocs(q);
-                    
+                    const codesRef = fb.collection(fb.db, 'codes');
+                    const q = fb.query(codesRef, fb.where("code", "==", results.testCode));
+                    const querySnapshot = await fb.getDocs(q);
+
                     if (!querySnapshot.empty || results.testCode === "0HDM-V3EU" || results.testCode === "TEST-1234") {
                         // Code existiert oder ist Test-Code - speichere Ergebnis
-                        const resultsRef = collection(db, 'results');
-                        await addDoc(resultsRef, {
+                        const resultsRef = fb.collection(fb.db, 'results');
+                        await fb.addDoc(resultsRef, {
                             ...results,
-                            createdAt: serverTimestamp()
+                            createdAt: fb.serverTimestamp()
                         });
                         console.log("Ergebnisse in Firebase gespeichert");
                     } else {
@@ -1770,13 +1872,19 @@ window.calculateResults = function() {
         }
 
         // Restart Test Function
-        window.restartTest = function() {
+        window.restartTest = async function() {
+            // Delete draft if exists
+            if (testCode) {
+                await deleteDraft(testCode);
+            }
+
             // Reset all variables
             currentSectionIndex = 0;
             answers = {};
             testCode = "";
             testStartTime = null;
-            
+            draftDocId = null;
+
             // Reset UI
             document.getElementById('resultsSection').classList.remove('active');
             document.getElementById('testSection').classList.remove('active');
