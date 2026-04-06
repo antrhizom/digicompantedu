@@ -1385,8 +1385,8 @@ info: {
             }
         }
 
-        // Start Test Function
-        window.startTest = async function() {
+        // Start Test Function (synchron, async-Teile intern)
+        window.startTest = function() {
             const codeInput = document.getElementById('accessCode');
             const code = codeInput.value.trim().toUpperCase();
 
@@ -1400,28 +1400,27 @@ info: {
             testCode = code;
             testStartTime = new Date();
 
-            // Try to load saved draft
-            const draft = await loadDraft(code);
-            if (draft && draft.answers && Object.keys(draft.answers).length > 0) {
-                answers = draft.answers;
-                currentSectionIndex = draft.currentSectionIndex || 0;
-                const numAnswered = Object.keys(answers).length;
-                const totalQuestions = sections.reduce((sum, s) => sum + s.questions.length, 0);
-                alert(`Willkommen zurück! ${numAnswered} von ${totalQuestions} Antworten wurden geladen. Sie können dort weitermachen, wo Sie aufgehört haben.`);
-            }
-
-            // Check previous attempts
-            const prevAttempts = await countAttempts(code);
-            if (prevAttempts > 0) {
-                console.log(`${prevAttempts} frühere Durchführung(en) für diesen Code.`);
-            }
-
-            // Hide code entry, show test
+            // Hide code entry, show test sofort
             document.getElementById('codeEntry').style.display = 'none';
             document.getElementById('testSection').classList.add('active');
 
-            // Initialize section (resume from saved position)
-            showSection(currentSectionIndex);
+            // Initialize first section
+            showSection(0);
+
+            // Async: Draft laden (im Hintergrund, aktualisiert UI nach Laden)
+            loadDraft(code).then(function(draft) {
+                if (draft && draft.answers && Object.keys(draft.answers).length > 0) {
+                    answers = draft.answers;
+                    currentSectionIndex = draft.currentSectionIndex || 0;
+                    const numAnswered = Object.keys(answers).length;
+                    const totalQuestions = sections.reduce((sum, s) => sum + s.questions.length, 0);
+                    // UI aktualisieren mit geladenen Antworten
+                    showSection(currentSectionIndex);
+                    alert('Willkommen zur\u00fcck! ' + numAnswered + ' von ' + totalQuestions + ' Antworten wurden geladen.');
+                }
+            }).catch(function(e) {
+                console.warn('Draft laden fehlgeschlagen:', e);
+            });
         }
 
         // Show Section Function
@@ -1593,29 +1592,29 @@ info: {
         }
 
         // Submit Test Function
-        window.submitTest = async function() {
+        window.submitTest = function() {
             if (!checkSectionComplete()) {
                 const currentSection = sections[currentSectionIndex];
                 const unanswered = currentSection.questions.filter(q => !answers[q.id]).length;
-                alert(`Bitte beantworten Sie alle ${unanswered} verbleibenden Fragen in diesem Bereich.`);
+                alert('Bitte beantworten Sie alle ' + unanswered + ' verbleibenden Fragen in diesem Bereich.');
                 return;
             }
 
             // Calculate results
             const results = calculateResults();
 
-            // Add attempt number
-            const prevAttempts = await countAttempts(testCode);
-            results.attemptNumber = prevAttempts + 1;
-
-            // Save to Firebase and localStorage
-            await saveResults(results);
-
-            // Delete draft after successful submit
-            await deleteDraft(testCode);
-
-            // Show results
+            // Show results sofort
             showResults(results);
+
+            // Async: Attempt-Nummer, speichern und Draft löschen
+            countAttempts(testCode).then(function(prev) {
+                results.attemptNumber = prev + 1;
+                return saveResults(results);
+            }).then(function() {
+                return deleteDraft(testCode);
+            }).catch(function(e) {
+                console.warn('Submit-Speicherung fehlgeschlagen:', e);
+            });
         }
 
         // Calculate Results Function
@@ -1872,10 +1871,10 @@ window.calculateResults = function() {
         }
 
         // Restart Test Function
-        window.restartTest = async function() {
-            // Delete draft if exists
+        window.restartTest = function() {
+            // Delete draft if exists (async im Hintergrund)
             if (testCode) {
-                await deleteDraft(testCode);
+                deleteDraft(testCode).catch(function(e) { console.warn(e); });
             }
 
             // Reset all variables
@@ -1892,12 +1891,8 @@ window.calculateResults = function() {
             document.getElementById('accessCode').value = '';
         }
 
-        // Enable Enter key and button click for code input
+        // Enable Enter key for code input
         document.addEventListener('DOMContentLoaded', function() {
-            // Button click handler (robuster als onclick im HTML)
-            document.getElementById('startTestBtn').addEventListener('click', function() {
-                startTest();
-            });
             document.getElementById('accessCode').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     startTest();
