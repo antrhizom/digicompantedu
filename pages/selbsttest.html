@@ -1892,15 +1892,14 @@ window.calculateResults = function() {
         }
 
         // Enable button click and Enter key for code input
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('startTestBtn').addEventListener('click', function() {
+        // (Direkt ausgeführt, da Script am Ende des Body steht und DOM bereit ist)
+        document.getElementById('startTestBtn').addEventListener('click', function() {
+            startTest();
+        });
+        document.getElementById('accessCode').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
                 startTest();
-            });
-            document.getElementById('accessCode').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    startTest();
-                }
-            });
+            }
         });
     </script>
 </body>
