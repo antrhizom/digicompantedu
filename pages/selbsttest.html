@@ -1892,8 +1892,12 @@ window.calculateResults = function() {
             document.getElementById('accessCode').value = '';
         }
 
-        // Enable Enter key for code input
+        // Enable Enter key and button click for code input
         document.addEventListener('DOMContentLoaded', function() {
+            // Button click handler (robuster als onclick im HTML)
+            document.getElementById('startTestBtn').addEventListener('click', function() {
+                startTest();
+            });
             document.getElementById('accessCode').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     startTest();
