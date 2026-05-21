@@ -14,7 +14,7 @@ async function verifyAdmin(req) {
   return decoded;
 }
 
-exports.manageUsers = onRequest({ region: "europe-west1" }, (req, res) => {
+exports.manageUsers = onRequest({ region: "europe-west1", invoker: "public" }, (req, res) => {
   cors(req, res, async () => {
     try {
       const caller = await verifyAdmin(req);
@@ -120,7 +120,7 @@ exports.manageUsers = onRequest({ region: "europe-west1" }, (req, res) => {
   });
 });
 
-exports.migrateUsers = onRequest({ region: "europe-west1" }, (req, res) => {
+exports.migrateUsers = onRequest({ region: "europe-west1", invoker: "public" }, (req, res) => {
   cors(req, res, async () => {
     try {
       const caller = await verifyAdmin(req);
